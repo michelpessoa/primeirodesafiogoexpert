@@ -65,7 +65,7 @@ func CotacaoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	time.Sleep(220 * time.Millisecond) //Teste para o timeout
+	//time.Sleep(220 * time.Millisecond) //Teste para o timeout
 
 	select {
 	case <-context.Done():
