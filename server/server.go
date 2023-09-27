@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type CambioConsulta struct {
+type CotacaoConsulta struct {
 	Usdbrl Usdbrl `json:"USDBRL"`
 }
 
@@ -31,7 +31,7 @@ type Usdbrl struct {
 	CreateDate string `json:"create_date"`
 }
 
-type CambioResposta struct {
+type CotacaoResposta struct {
 	ValorDolar string `json:"bid"`
 }
 
@@ -43,27 +43,29 @@ type RequestError struct {
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/cambio", CambioHandler)
+	mux.HandleFunc("/cotacao", CotacaoHandler)
 
 	http.ListenAndServe(":8080", mux)
 }
 
-func CambioHandler(w http.ResponseWriter, r *http.Request) {
-	context, cancel := context.WithTimeout(r.Context(), time.Second)
+func CotacaoHandler(w http.ResponseWriter, r *http.Request) {
+	context, cancel := context.WithTimeout(r.Context(), time.Millisecond*210)
 	defer cancel()
 
-	consulta, err := BuscaCambio(r)
+	consulta, err := BuscaCotacao(r)
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	erroDB := SalvaConsultaCambio(consulta.Usdbrl, r)
+	erroDB := SalvaConsultaCotacao(consulta.Usdbrl, r)
 	if erroDB != nil {
 		fmt.Println(erroDB)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	time.Sleep(220 * time.Millisecond) //Teste para o timeout
 
 	select {
 	case <-context.Done():
@@ -74,19 +76,19 @@ func CambioHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		resposta := CambioResposta{consulta.Usdbrl.Bid}
+		resposta := CotacaoResposta{consulta.Usdbrl.Bid}
 
 		json.NewEncoder(w).Encode(resposta)
 	}
 
 }
 
-func BuscaCambio(r *http.Request) (*CambioConsulta, error) {
+func BuscaCotacao(r *http.Request) (*CotacaoConsulta, error) {
 	context1, cancel := context.WithTimeout(r.Context(), time.Millisecond*200)
 	defer cancel()
 	resp, error := http.Get("https://economia.awesomeapi.com.br/json/last/USD-BRL")
 
-	//time.Sleep(3 * time.Second) //Teste para o timeout
+	//time.Sleep(201 * time.Millisecond) //Teste para o timeout
 
 	select {
 	case <-context1.Done():
@@ -104,7 +106,7 @@ func BuscaCambio(r *http.Request) (*CambioConsulta, error) {
 			return nil, error
 		}
 
-		var c CambioConsulta
+		var c CotacaoConsulta
 		error = json.Unmarshal(body, &c)
 		if error != nil {
 			return nil, error
@@ -116,11 +118,11 @@ func BuscaCambio(r *http.Request) (*CambioConsulta, error) {
 
 }
 
-func SalvaConsultaCambio(consulta Usdbrl, r *http.Request) error {
+func SalvaConsultaCotacao(consulta Usdbrl, r *http.Request) error {
 	context2, cancel := context.WithTimeout(r.Context(), time.Millisecond*10)
 	defer cancel()
 
-	//time.Sleep(3 * time.Second) //Teste para o timeout
+	//time.Sleep(20 * time.Millisecond) //Teste para o timeout
 
 	select {
 	case <-context2.Done():
@@ -129,7 +131,7 @@ func SalvaConsultaCambio(consulta Usdbrl, r *http.Request) error {
 			Err:        errors.New(" timeout transaction"),
 		}
 	default:
-		db, err := gorm.Open(sqlite.Open("cambio.db"), &gorm.Config{})
+		db, err := gorm.Open(sqlite.Open("cotacao.db"), &gorm.Config{})
 		if err != nil {
 			panic(err)
 		}
